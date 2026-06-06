@@ -7,6 +7,7 @@ import { getCurrentUser, updateUser } from "@/lib/users";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { setPending } from "@/lib/pending";
 import { requestOtp } from "@/lib/otpClient";
+import { publishProfile } from "@/lib/profileClient";
 
 /** Downscale an image file to a small square-ish data URL for storage. */
 function resizeImage(file: File, max = 256): Promise<string> {
@@ -86,6 +87,7 @@ export default function EditProfilePage() {
 
     // Persist name / email / picture immediately (keeping the current number).
     updateUser(origPhone, { name, email, phone: origPhone, avatar });
+    publishProfile(getCurrentUser());
 
     if (!phoneChanged) {
       setSaved(true);

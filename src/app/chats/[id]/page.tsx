@@ -16,6 +16,7 @@ import {
   type ChatMessage,
 } from "@/lib/chatClient";
 import { startCall } from "@/lib/callClient";
+import { usePeerProfile } from "@/lib/profileClient";
 
 function clockTime(ts: number): string {
   return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -54,6 +55,7 @@ export default function ConversationPage() {
   const [blocked, setBlocked] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirm, setConfirm] = useState<null | "block" | "delete">(null);
+  const peerProfile = usePeerProfile(target?.peer);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -234,7 +236,7 @@ export default function ConversationPage() {
           </svg>
         </button>
         <Link href={`/contacts/${target.contactId}`} className="flex min-w-0 flex-1 items-center gap-3">
-          <Avatar name={target.name} size={38} />
+          <Avatar name={target.name} src={peerProfile.avatar} size={38} />
           <span className="truncate text-lg font-semibold">{target.name}</span>
         </Link>
         <button aria-label="Voice call" onClick={() => placeCall("voice")} className="p-1.5">

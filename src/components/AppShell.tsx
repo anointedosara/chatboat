@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ChatLogo from "@/components/ChatLogo";
 import { getCurrentUser } from "@/lib/users";
+import { publishProfile } from "@/lib/profileClient";
 
 type Tab = "chats" | "contacts" | "settings";
 
@@ -58,9 +59,15 @@ export default function AppShell({
 }) {
   const router = useRouter();
 
-  // Block access to the signed-in screens when there's no session.
+  // Block access to the signed-in screens when there's no session, and keep
+  // this user's shared profile (name + avatar) published for other users.
   useEffect(() => {
-    if (!getCurrentUser()) router.replace("/login");
+    const u = getCurrentUser();
+    if (!u) {
+      router.replace("/login");
+      return;
+    }
+    publishProfile(u);
   }, [router]);
 
   return (

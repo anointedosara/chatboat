@@ -6,12 +6,14 @@ import Avatar from "@/components/Avatar";
 import { getCurrentUser } from "@/lib/users";
 import { getContacts } from "@/lib/store";
 import { pollSignals, sendSignal } from "@/lib/callClient";
+import { fetchProfiles } from "@/lib/profileClient";
 
 type Incoming = {
   callId: string;
   from: string;
   fromName: string;
   callType: "voice" | "video";
+  avatar?: string;
 };
 
 /**
@@ -68,6 +70,14 @@ export default function CallListener() {
             incomingRef.current = inc;
             setIncoming(inc);
             navigator.vibrate?.([400, 200, 400]);
+            fetchProfiles([s.from]).then((m) => {
+              const avatar = m[s.from]?.avatar;
+              if (avatar && incomingRef.current?.callId === inc.callId) {
+                const withAvatar = { ...inc, avatar };
+                incomingRef.current = withAvatar;
+                setIncoming(withAvatar);
+              }
+            });
           }
         } else if (s.type === "cancel" || s.type === "hangup") {
           if (incomingRef.current?.callId === s.callId) {
@@ -120,7 +130,7 @@ export default function CallListener() {
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-between bg-linear-to-b from-teal to-[#0f3a3e] px-6 py-16 text-white">
       <div className="flex flex-col items-center gap-4 pt-12">
-        <Avatar name={incoming.fromName} size={120} />
+        <Avatar name={incoming.fromName} src={incoming.avatar} size={120} />
         <h1 className="text-2xl font-bold">{incoming.fromName}</h1>
         <p className="text-sm text-white/80">
           Incoming {incoming.callType === "video" ? "video" : "voice"} call…

@@ -8,6 +8,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { blockUser, getContact, isBlocked, unblockUser, type Contact } from "@/lib/store";
 import { getCurrentUser } from "@/lib/users";
 import { startCall } from "@/lib/callClient";
+import { usePeerProfile } from "@/lib/profileClient";
 
 export default function ContactProfilePage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function ContactProfilePage() {
   const [loaded, setLoaded] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [confirmBlock, setConfirmBlock] = useState(false);
+  const profile = usePeerProfile(contact?.phone);
 
   useEffect(() => {
     const c = getContact(params.id) ?? null;
@@ -64,7 +66,7 @@ export default function ContactProfilePage() {
             </svg>
           </button>
         </div>
-        <Avatar name={contact.name} size={96} />
+        <Avatar name={contact.name} src={profile.avatar} size={96} />
         <h1 className="mt-3 text-2xl font-bold">{contact.name}</h1>
         <p className="text-sm text-white/85">+{contact.phone}</p>
 

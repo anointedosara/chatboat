@@ -16,6 +16,7 @@ import {
 } from "@/lib/store";
 import { getCurrentUser } from "@/lib/users";
 import { fetchConversations, type ConversationSummary } from "@/lib/chatClient";
+import { fetchProfiles, type PeerProfile } from "@/lib/profileClient";
 
 function previewText(c: ConversationSummary): string {
   if (c.lastType === "voice") return "🎤 Voice message";
@@ -27,6 +28,7 @@ export default function ChatsPage() {
   const [tab, setTab] = useState<"chats" | "calls">("chats");
   const [query, setQuery] = useState("");
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, PeerProfile>>({});
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [blocked, setBlocked] = useState<string[]>([]);
   const [calls, setCalls] = useState<CallLog[]>([]);
@@ -42,7 +44,9 @@ export default function ChatsPage() {
 
   const refreshServer = useCallback(async (phone: string) => {
     if (!phone) return;
-    setConversations(await fetchConversations(phone));
+    const convs = await fetchConversations(phone);
+    setConversations(convs);
+    if (convs.length) setProfiles(await fetchProfiles(convs.map((c) => c.peer)));
   }, []);
 
   useEffect(() => {
@@ -59,8 +63,9 @@ export default function ChatsPage() {
   }, [refreshLocal, refreshServer]);
 
   const nameFor = useCallback(
-    (peer: string) => contacts.find((c) => c.phone === peer)?.name ?? `+${peer}`,
-    [contacts],
+    (peer: string) =>
+      contacts.find((c) => c.phone === peer)?.name ?? profiles[peer]?.name ?? `+${peer}`,
+    [contacts, profiles],
   );
 
   const filteredChats = useMemo(
@@ -139,7 +144,7 @@ export default function ChatsPage() {
               {filteredChats.map((c) => (
                 <li key={c.peer}>
                   <Link href={`/chats/${c.peer}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-black/3">
-                    <Avatar name={nameFor(c.peer)} />
+                    <Avatar name={nameFor(c.peer)} src={profiles[c.peer]?.avatar} />
                     <span className="min-w-0 flex-1 border-b border-black/5 pb-3">
                       <span className="flex items-center justify-between">
                         <span className="truncate font-semibold text-ink">{nameFor(c.peer)}</span>

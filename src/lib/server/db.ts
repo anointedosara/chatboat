@@ -78,10 +78,53 @@ function summaryFor(m: ServerMessage, peer: string): ConversationSummary {
 
 /* ---------- In-memory fallback ---------- */
 
-type MemState = { messages: ServerMessage[] };
+type MemState = { messages: ServerMessage[]; profiles: Record<string, Profile> };
 const g = globalThis as unknown as { __cbDb?: MemState };
-const mem: MemState = g.__cbDb ?? { messages: [] };
+const mem: MemState = g.__cbDb ?? { messages: [], profiles: {} };
+mem.profiles ??= {};
 g.__cbDb = mem;
+
+/* ---------- Public profiles (name + avatar, shared with other users) ---------- */
+
+export type Profile = { name?: string; avatar?: string; updatedAt: number };
+const profilesKey = "cb:profiles";
+
+export async function saveProfile(
+  phone: string,
+  input: { name?: string; avatar?: string },
+): Promise<void> {
+  const key = normalizePhone(phone);
+  const profile: Profile = {
+    name: input.name,
+    avatar: input.avatar,
+    updatedAt: Date.now(),
+  };
+  const r = redis();
+  if (r) {
+    await r.hset(profilesKey, { [key]: JSON.stringify(profile) });
+  } else {
+    mem.profiles[key] = profile;
+  }
+}
+
+export async function getProfiles(phones: string[]): Promise<Record<string, Profile>> {
+  const keys = phones.map(normalizePhone).filter(Boolean);
+  if (keys.length === 0) return {};
+  const out: Record<string, Profile> = {};
+  const r = redis();
+  if (r) {
+    const values = await Promise.all(keys.map((k) => r.hget<unknown>(profilesKey, k)));
+    keys.forEach((k, i) => {
+      const v = values[i];
+      if (v) out[k] = asObj<Profile>(v);
+    });
+  } else {
+    keys.forEach((k) => {
+      if (mem.profiles[k]) out[k] = mem.profiles[k];
+    });
+  }
+  return out;
+}
 
 /* ---------- Public API (async) ---------- */
 

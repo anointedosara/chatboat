@@ -6,6 +6,7 @@ import Avatar from "@/components/Avatar";
 import { addCall, formatDuration, getContacts } from "@/lib/store";
 import { getCurrentUser } from "@/lib/users";
 import { getIceServers, pollSignals, sendSignal } from "@/lib/callClient";
+import { usePeerProfile } from "@/lib/profileClient";
 import type { Signal } from "@/lib/callTypes";
 
 export default function CallPage() {
@@ -27,6 +28,7 @@ function CallScreen() {
   const callType = search.get("type") === "video" ? "video" : "voice";
 
   const [name, setName] = useState(`+${peer}`);
+  const peerProfile = usePeerProfile(peer);
   const [phase, setPhase] = useState<Phase>(role === "caller" ? "ringing" : "connecting");
   const [seconds, setSeconds] = useState(0);
   const [muted, setMuted] = useState(false);
@@ -45,6 +47,7 @@ function CallScreen() {
   const endedRef = useRef(false);
   const offerSentRef = useRef(false);
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
+  const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const u = getCurrentUser();
@@ -91,6 +94,7 @@ function CallScreen() {
     function onConnected() {
       if (startedAtRef.current) return;
       startedAtRef.current = Date.now();
+      if (watchdogRef.current) clearTimeout(watchdogRef.current);
       setPhase("active");
       setStatus("");
       timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -166,8 +170,22 @@ function CallScreen() {
         pc.onconnectionstatechange = () => {
           const st = pc.connectionState;
           if (st === "connected") onConnected();
-          else if (st === "failed" || st === "closed") finish(false);
+          else if (st === "failed") finish(false);
         };
+        // iceConnectionState is more reliable across browsers for "connected".
+        pc.oniceconnectionstatechange = () => {
+          const st = pc.iceConnectionState;
+          if (st === "connected" || st === "completed") onConnected();
+          else if (st === "failed") finish(false);
+        };
+
+        // Watchdog: if media never connects, don't hang on "Connecting…".
+        watchdogRef.current = setTimeout(() => {
+          if (!startedAtRef.current && !endedRef.current) {
+            setStatus("Couldn't connect");
+            setTimeout(() => finish(true), 1200);
+          }
+        }, 35000);
 
         // Begin polling the signaling inbox.
         pollRef.current = setInterval(async () => {
@@ -215,12 +233,14 @@ function CallScreen() {
     function teardown() {
       if (pollRef.current) clearInterval(pollRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
+      if (watchdogRef.current) clearTimeout(watchdogRef.current);
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       try {
         pcRef.current?.close();
       } catch {
         /* ignore */
       }
+      pcRef.current = null;
     }
 
     // expose finish for button handlers via ref
@@ -272,7 +292,7 @@ function CallScreen() {
       )}
 
       <div className="z-10 flex flex-col items-center gap-4 pt-8">
-        {!isVideo && <Avatar name={name} size={120} />}
+        {!isVideo && <Avatar name={name} src={peerProfile.avatar} size={120} />}
         <h1 className="text-2xl font-bold drop-shadow">{name}</h1>
         <p className="text-sm text-white/85 drop-shadow">
           {phase === "active" ? formatDuration(seconds) : status}
