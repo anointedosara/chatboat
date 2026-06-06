@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ChatLogo from "@/components/ChatLogo";
+import { getCurrentUser } from "@/lib/users";
 
 type Tab = "chats" | "contacts" | "settings";
 
@@ -53,6 +56,13 @@ export default function AppShell({
   active: Tab;
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+
+  // Block access to the signed-in screens when there's no session.
+  useEffect(() => {
+    if (!getCurrentUser()) router.replace("/login");
+  }, [router]);
+
   return (
     <div className="flex min-h-dvh w-full bg-white">
       {/* Desktop sidebar */}

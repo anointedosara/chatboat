@@ -7,7 +7,7 @@ export type ChatMessage = {
   to: string;
   type: "text" | "voice" | "file";
   text?: string;
-  fileId?: string;
+  fileUrl?: string;
   fileName?: string;
   fileType?: string;
   fileSize?: number;
@@ -17,16 +17,12 @@ export type ChatMessage = {
 
 export type UploadResult = {
   ok: boolean;
-  id?: string;
+  url?: string;
   name?: string;
   type?: string;
   size?: number;
   error?: string;
 };
-
-export function fileUrl(id: string): string {
-  return `/api/files/${id}`;
-}
 
 export async function fetchMessages(
   self: string,
@@ -67,6 +63,16 @@ export type ConversationSummary = {
   lastFrom: string;
   lastTime: number;
 };
+
+/** Delete a single chat (all messages between self and peer). */
+export async function deleteChat(self: string, peer: string): Promise<void> {
+  await fetch(`/api/messages?self=${self}&peer=${peer}`, { method: "DELETE" });
+}
+
+/** Delete every message involving the user (account deletion). */
+export async function deleteAllMessages(self: string): Promise<void> {
+  await fetch(`/api/messages?self=${self}`, { method: "DELETE" });
+}
 
 export async function fetchConversations(self: string): Promise<ConversationSummary[]> {
   const res = await fetch(`/api/conversations?self=${self}`, { cache: "no-store" });

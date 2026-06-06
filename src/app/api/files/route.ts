@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { putFile } from "@/lib/server/chatStore";
+import { storeFile } from "@/lib/server/fileStore";
 
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
 
@@ -19,19 +19,6 @@ export async function POST(request: NextRequest) {
     return Response.json({ ok: false, error: "too_large" }, { status: 413 });
   }
 
-  const data = await file.arrayBuffer();
-  const id = putFile({
-    name: file.name || "file",
-    type: file.type || "application/octet-stream",
-    size: file.size,
-    data,
-  });
-
-  return Response.json({
-    ok: true,
-    id,
-    name: file.name,
-    type: file.type,
-    size: file.size,
-  });
+  const stored = await storeFile(file);
+  return Response.json({ ok: true, ...stored });
 }

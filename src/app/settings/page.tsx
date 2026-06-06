@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import Avatar from "@/components/Avatar";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { clearCurrentUser, getCurrentUser, type User } from "@/lib/users";
 
 type Item = {
@@ -18,10 +19,16 @@ type Item = {
 export default function SettingsPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   useEffect(() => {
-    setUser(getCurrentUser() ?? null);
-  }, []);
+    const u = getCurrentUser();
+    if (!u) {
+      router.replace("/login");
+      return;
+    }
+    setUser(u);
+  }, [router]);
 
   function logout() {
     clearCurrentUser();
@@ -30,10 +37,10 @@ export default function SettingsPage() {
 
   const items: Item[] = [
     { label: "Edit Profile", href: "/settings/edit-profile", icon: <IconEdit /> },
-    { label: "Blocked users", icon: <IconBlock /> },
-    { label: "Delete account", icon: <IconTrash /> },
-    { label: "Privacy policy", icon: <IconShield /> },
-    { label: "Terms & condition", icon: <IconDoc /> },
+    { label: "Blocked users", href: "/settings/blocked", icon: <IconBlock /> },
+    { label: "Delete account", href: "/settings/delete-account", icon: <IconTrash />, danger: true },
+    { label: "Privacy policy", href: "/settings/privacy", icon: <IconShield /> },
+    { label: "Terms & condition", href: "/settings/terms", icon: <IconDoc /> },
     { label: "Logout", icon: <IconLogout />, action: "logout" },
   ];
 
@@ -71,7 +78,7 @@ export default function SettingsPage() {
               const cls = `block border-black/5 ${i > 0 ? "border-t" : ""}`;
               if (it.action === "logout") {
                 return (
-                  <button key={it.label} onClick={logout} className={`${cls} w-full text-left`}>
+                  <button key={it.label} onClick={() => setConfirmLogout(true)} className={`${cls} w-full text-left`}>
                     {inner}
                   </button>
                 );
@@ -92,6 +99,16 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {confirmLogout && (
+        <ConfirmDialog
+          title="Log out?"
+          message="You'll need to log in or register again to use Chatboat."
+          confirmLabel="Logout"
+          onConfirm={logout}
+          onCancel={() => setConfirmLogout(false)}
+        />
+      )}
     </AppShell>
   );
 }

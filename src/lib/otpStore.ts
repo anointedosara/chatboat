@@ -8,6 +8,8 @@
  * dev-server hot reloads.
  */
 
+import { OTP_LENGTH } from "./otpConfig";
+
 export const OTP_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 export const RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute
 
@@ -22,8 +24,9 @@ const store: Map<string, OtpRecord> = g.__chatboatOtp ?? new Map();
 g.__chatboatOtp = store;
 
 function generateCode(): string {
-  // 4-digit code, 1000–9999 (never leading-zero, matches the mockup boxes)
-  return String(Math.floor(1000 + Math.random() * 9000));
+  // OTP_LENGTH-digit numeric code (zero-padded).
+  const max = 10 ** OTP_LENGTH;
+  return String(Math.floor(Math.random() * max)).padStart(OTP_LENGTH, "0");
 }
 
 /**

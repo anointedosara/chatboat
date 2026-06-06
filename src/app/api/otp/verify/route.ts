@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
-import { verifyOtp } from "@/lib/otpStore";
+import { OTP_LENGTH } from "@/lib/otpConfig";
+import { checkVerification } from "@/lib/otpVerify";
 
 export async function POST(request: NextRequest) {
   let body: { phone?: string; code?: string };
@@ -16,14 +17,13 @@ export async function POST(request: NextRequest) {
   if (!isValidPhone(phone)) {
     return Response.json({ ok: false, error: "invalid_phone" }, { status: 400 });
   }
-  if (!/^\d{4}$/.test(code)) {
+  if (!new RegExp(`^\\d{${OTP_LENGTH}}$`).test(code)) {
     return Response.json({ ok: false, error: "invalid_code" }, { status: 400 });
   }
 
-  const result = verifyOtp(phone, code);
+  const result = await checkVerification(phone, code);
   if (result.ok) {
     return Response.json({ ok: true });
   }
-  // reason: "no_code" | "expired" | "mismatch"
-  return Response.json({ ok: false, error: result.reason }, { status: 400 });
+  return Response.json({ ok: false, error: result.error }, { status: 400 });
 }

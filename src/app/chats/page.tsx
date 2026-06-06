@@ -7,6 +7,7 @@ import Avatar from "@/components/Avatar";
 import {
   clockTime,
   formatDuration,
+  getBlocked,
   getCalls,
   getContacts,
   subscribe,
@@ -27,12 +28,14 @@ export default function ChatsPage() {
   const [query, setQuery] = useState("");
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [blocked, setBlocked] = useState<string[]>([]);
   const [calls, setCalls] = useState<CallLog[]>([]);
   const [me, setMe] = useState<{ name: string; phone: string; avatar?: string }>({ name: "", phone: "" });
 
   const refreshLocal = useCallback(() => {
     setCalls(getCalls());
     setContacts(getContacts());
+    setBlocked(getBlocked());
     const u = getCurrentUser();
     if (u) setMe({ name: u.name, phone: u.phone, avatar: u.avatar });
   }, []);
@@ -63,10 +66,11 @@ export default function ChatsPage() {
   const filteredChats = useMemo(
     () =>
       conversations.filter((c) => {
+        if (blocked.includes(c.peer)) return false;
         const q = query.trim().toLowerCase();
         return nameFor(c.peer).toLowerCase().includes(q) || c.peer.includes(query.trim());
       }),
-    [conversations, query, nameFor],
+    [conversations, query, nameFor, blocked],
   );
 
   return (

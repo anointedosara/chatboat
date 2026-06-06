@@ -1,12 +1,7 @@
 import { NextRequest } from "next/server";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
-import {
-  createOtp,
-  resendWaitMs,
-  RESEND_COOLDOWN_MS,
-  OTP_EXPIRY_MS,
-} from "@/lib/otpStore";
-import { sendSms, SMS_DEV_MODE } from "@/lib/sms";
+import { RESEND_COOLDOWN_MS, OTP_EXPIRY_MS } from "@/lib/otpStore";
+import { startVerification } from "@/lib/otpVerify";
 
 export async function POST(request: NextRequest) {
   let body: { phone?: string };
@@ -21,28 +16,25 @@ export async function POST(request: NextRequest) {
     return Response.json({ ok: false, error: "invalid_phone" }, { status: 400 });
   }
 
-  // Enforce the 1-minute resend cooldown.
-  const wait = resendWaitMs(phone);
-  if (wait > 0) {
+  const result = await startVerification(phone);
+  if (!result.ok) {
+    if (result.error === "cooldown") {
+      return Response.json(
+        { ok: false, error: "cooldown", retryAfterMs: result.cooldownMs },
+        { status: 429 },
+      );
+    }
     return Response.json(
-      { ok: false, error: "cooldown", retryAfterMs: wait },
-      { status: 429 },
+      { ok: false, error: "send_failed", detail: result.detail },
+      { status: 502 },
     );
   }
-
-  // Creating a new code replaces (invalidates) any previous one.
-  const code = createOtp(phone);
-  const minutes = Math.round(OTP_EXPIRY_MS / 60000);
-  await sendSms(
-    phone,
-    `Your Chatboat verification code is ${code}. It expires in ${minutes} minutes.`,
-  );
 
   return Response.json({
     ok: true,
     resendAfterMs: RESEND_COOLDOWN_MS,
     expiresInMs: OTP_EXPIRY_MS,
-    // Dev convenience only — never returned in production.
-    devCode: SMS_DEV_MODE ? code : undefined,
+    // Only populated in dev mode (no Twilio); never present in production.
+    devCode: result.devCode,
   });
 }

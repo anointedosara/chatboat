@@ -8,6 +8,7 @@ import Link from "next/link";
 import { clearPending, getPending, type PendingVerification } from "@/lib/pending";
 import { confirmOtp, requestOtp } from "@/lib/otpClient";
 import { getCurrentUser, setCurrentUser, updateUser } from "@/lib/users";
+import { OTP_LENGTH } from "@/lib/otpConfig";
 
 const RESEND_SECONDS = 60;
 
@@ -50,7 +51,7 @@ export default function OtpPage() {
 
   async function onVerify(e: React.FormEvent) {
     e.preventDefault();
-    if (!pending || code.length !== 4 || status === "verifying") return;
+    if (!pending || code.length !== OTP_LENGTH || status === "verifying") return;
     setError("");
     setStatus("verifying");
     const res = await confirmOtp(pending.phone, code);
@@ -124,7 +125,7 @@ export default function OtpPage() {
         <div className="mt-auto pb-7 pt-8">
           <button
             type="submit"
-            disabled={code.length !== 4 || status === "verifying"}
+            disabled={code.length !== OTP_LENGTH || status === "verifying"}
             className="flex w-full items-center justify-center rounded-full py-3.5 text-base font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:bg-teal-soft enabled:bg-teal enabled:hover:bg-teal-dark"
           >
             {status === "verifying" ? <span className="spinner" /> : "Verify"}

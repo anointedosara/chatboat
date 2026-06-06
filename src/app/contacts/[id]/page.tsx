@@ -4,18 +4,35 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
-import { getContact, type Contact } from "@/lib/store";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { blockUser, getContact, isBlocked, unblockUser, type Contact } from "@/lib/store";
 
 export default function ContactProfilePage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const [contact, setContact] = useState<Contact | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  const [confirmBlock, setConfirmBlock] = useState(false);
 
   useEffect(() => {
-    setContact(getContact(params.id) ?? null);
+    const c = getContact(params.id) ?? null;
+    setContact(c);
+    if (c) setBlocked(isBlocked(c.phone));
     setLoaded(true);
   }, [params.id]);
+
+  function toggleBlock() {
+    if (!contact) return;
+    if (blocked) {
+      unblockUser(contact.phone);
+      setBlocked(false);
+    } else {
+      blockUser(contact.phone);
+      setBlocked(true);
+    }
+    setConfirmBlock(false);
+  }
 
   if (loaded && !contact) {
     return (
@@ -61,12 +78,33 @@ export default function ContactProfilePage() {
         </div>
       </header>
 
-      <div className="p-4">
+      <div className="space-y-3 p-4">
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-ink/40">Phone</p>
           <p className="mt-1 text-ink">+{contact.phone}</p>
         </div>
+
+        <button
+          onClick={() => (blocked ? toggleBlock() : setConfirmBlock(true))}
+          className="flex w-full items-center gap-3 rounded-2xl bg-white p-4 text-left font-medium text-red-500 shadow-sm hover:bg-black/[0.02]"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <circle cx="12" cy="12" r="10" /><path d="m4.9 4.9 14.2 14.2" strokeLinecap="round" />
+          </svg>
+          {blocked ? `Unblock ${contact.name}` : `Block ${contact.name}`}
+        </button>
       </div>
+
+      {confirmBlock && (
+        <ConfirmDialog
+          title={`Block ${contact.name}?`}
+          message="You won't be able to send or receive messages from this contact until you unblock them."
+          confirmLabel="Block"
+          danger
+          onConfirm={toggleBlock}
+          onCancel={() => setConfirmBlock(false)}
+        />
+      )}
     </div>
   );
 }

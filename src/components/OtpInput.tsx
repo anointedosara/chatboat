@@ -1,22 +1,25 @@
 "use client";
 
 import { useRef } from "react";
+import { OTP_LENGTH } from "@/lib/otpConfig";
 
-/** Four single-digit boxes with auto-advance, backspace, and paste support. */
+/** Single-digit boxes with auto-advance, backspace, and paste support. */
 export default function OtpInput({
   value,
   onChange,
   disabled = false,
+  length = OTP_LENGTH,
 }: {
   value: string;
   onChange: (next: string) => void;
   disabled?: boolean;
+  length?: number;
 }) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
-  const digits = value.padEnd(4, " ").slice(0, 4).split("");
+  const digits = value.padEnd(length, " ").slice(0, length).split("");
 
   function setAt(index: number, digit: string) {
-    const arr = value.padEnd(4, " ").slice(0, 4).split("");
+    const arr = value.padEnd(length, " ").slice(0, length).split("");
     arr[index] = digit || " ";
     onChange(arr.join("").replace(/\s/g, ""));
   }
@@ -25,7 +28,7 @@ export default function OtpInput({
     const digit = raw.replace(/\D/g, "").slice(-1);
     if (!digit) return;
     setAt(index, digit);
-    if (index < 3) refs.current[index + 1]?.focus();
+    if (index < length - 1) refs.current[index + 1]?.focus();
   }
 
   function handleKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
@@ -42,14 +45,14 @@ export default function OtpInput({
 
   function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
     e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 4);
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, length);
     if (!pasted) return;
     onChange(pasted);
-    refs.current[Math.min(pasted.length, 3)]?.focus();
+    refs.current[Math.min(pasted.length, length - 1)]?.focus();
   }
 
   return (
-    <div className="flex justify-center gap-3">
+    <div className="flex justify-center gap-2">
       {digits.map((d, i) => (
         <input
           key={i}
@@ -64,7 +67,7 @@ export default function OtpInput({
           inputMode="numeric"
           maxLength={1}
           aria-label={`Digit ${i + 1}`}
-          className="h-14 w-14 rounded-full border-[1.5px] border-teal-soft bg-white text-center text-xl font-semibold text-ink outline-none focus:border-teal disabled:opacity-60"
+          className="h-13 w-11 rounded-2xl border-[1.5px] border-teal-soft bg-white text-center text-xl font-semibold text-ink outline-none focus:border-teal disabled:opacity-60"
         />
       ))}
     </div>

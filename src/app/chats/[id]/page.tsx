@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import VoiceMessage from "@/components/VoiceMessage";
-import { getContact, getContacts } from "@/lib/store";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { blockUser, getContact, getContacts, isBlocked, unblockUser } from "@/lib/store";
 import { getCurrentUser } from "@/lib/users";
 import {
+  deleteChat,
   fetchMessages,
-  fileUrl,
   sendMessage,
   uploadFile,
   type ChatMessage,
@@ -49,6 +50,9 @@ export default function ConversationPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirm, setConfirm] = useState<null | "block" | "delete">(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -71,7 +75,9 @@ export default function ConversationPage() {
       return;
     }
     setSelf(u.phone);
-    setTarget(resolveTarget(id));
+    const t = resolveTarget(id);
+    setTarget(t);
+    if (t) setBlocked(isBlocked(t.peer));
     setReady(true);
   }, [id, router]);
 
@@ -112,7 +118,7 @@ export default function ConversationPage() {
     setBusy(true);
     const up = await uploadFile(file);
     setBusy(false);
-    if (!up.ok || !up.id) {
+    if (!up.ok || !up.url) {
       setMicError(up.error === "too_large" ? "File is too large (max 8 MB)." : "Upload failed.");
       return;
     }
@@ -120,7 +126,7 @@ export default function ConversationPage() {
       from: self,
       to: target.peer,
       type: "file",
-      fileId: up.id,
+      fileUrl: up.url,
       fileName: up.name,
       fileType: up.type,
       fileSize: up.size,
@@ -147,12 +153,12 @@ export default function ConversationPage() {
         const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
         const file = new File([blob], "voice-note.webm", { type: blob.type });
         const up = await uploadFile(file);
-        if (!up.ok || !up.id) return;
+        if (!up.ok || !up.url) return;
         await sendMessage({
           from: self,
           to: target.peer,
           type: "voice",
-          fileId: up.id,
+          fileUrl: up.url,
           fileName: up.name,
           fileType: up.type,
           fileSize: up.size,
@@ -177,6 +183,27 @@ export default function ConversationPage() {
   function stopRecording(cancel: boolean) {
     cancelledRef.current = cancel;
     recorderRef.current?.stop();
+  }
+
+  function doBlock() {
+    if (!target) return;
+    blockUser(target.peer);
+    setBlocked(true);
+    setConfirm(null);
+    setMenuOpen(false);
+  }
+
+  function doUnblock() {
+    if (!target) return;
+    unblockUser(target.peer);
+    setBlocked(false);
+  }
+
+  async function doDeleteChat() {
+    if (!self || !target) return;
+    await deleteChat(self, target.peer);
+    setConfirm(null);
+    router.push("/chats");
   }
 
   if (!ready) return null;
@@ -212,6 +239,35 @@ export default function ConversationPage() {
             <path d="m23 7-7 5 7 5V7Z" /><rect x="1" y="5" width="15" height="14" rx="2" />
           </svg>
         </button>
+        <div className="relative">
+          <button aria-label="More options" onClick={() => setMenuOpen((o) => !o)} className="p-1.5">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="5" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="12" cy="19" r="1.6" />
+            </svg>
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-9 z-20 w-44 overflow-hidden rounded-xl bg-white py-1 text-sm text-ink shadow-xl">
+                <Link href={`/contacts/${target.contactId}`} className="block px-4 py-2.5 hover:bg-black/5">
+                  View profile
+                </Link>
+                {blocked ? (
+                  <button onClick={() => { doUnblock(); setMenuOpen(false); }} className="block w-full px-4 py-2.5 text-left hover:bg-black/5">
+                    Unblock
+                  </button>
+                ) : (
+                  <button onClick={() => { setMenuOpen(false); setConfirm("block"); }} className="block w-full px-4 py-2.5 text-left hover:bg-black/5">
+                    Block
+                  </button>
+                )}
+                <button onClick={() => { setMenuOpen(false); setConfirm("delete"); }} className="block w-full px-4 py-2.5 text-left text-red-500 hover:bg-black/5">
+                  Delete chat
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </header>
 
       {/* Messages */}
@@ -240,8 +296,15 @@ export default function ConversationPage() {
 
       {micError && <p className="bg-red-50 px-4 py-2 text-center text-xs text-red-500">{micError}</p>}
 
-      {/* Composer */}
-      {recording ? (
+      {/* Composer (hidden while blocked) */}
+      {blocked ? (
+        <div className="flex flex-col items-center gap-2 bg-white px-4 py-4 text-center">
+          <p className="text-sm text-ink/60">You blocked {target.name}. Unblock to send messages.</p>
+          <button onClick={doUnblock} className="rounded-full bg-teal px-6 py-2 text-sm font-semibold text-white hover:bg-teal-dark">
+            Unblock
+          </button>
+        </div>
+      ) : recording ? (
         <div className="flex items-center gap-3 px-3 py-3">
           <button onClick={() => stopRecording(true)} aria-label="Cancel" className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-red-500 shadow-sm">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -292,27 +355,48 @@ export default function ConversationPage() {
           </button>
         </div>
       )}
+
+      {confirm === "block" && (
+        <ConfirmDialog
+          title={`Block ${target.name}?`}
+          message="You won't be able to send or receive messages from this contact until you unblock them."
+          confirmLabel="Block"
+          danger
+          onConfirm={doBlock}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
+      {confirm === "delete" && (
+        <ConfirmDialog
+          title="Delete this chat?"
+          message="This permanently removes all messages in this conversation for both of you."
+          confirmLabel="Delete"
+          danger
+          onConfirm={doDeleteChat}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
     </div>
   );
 }
 
 function MessageBody({ m, mine }: { m: ChatMessage; mine: boolean }) {
-  if (m.type === "voice" && m.fileId) {
-    return <VoiceMessage src={fileUrl(m.fileId)} duration={m.duration ?? 0} mine={mine} />;
+  if (m.type === "voice" && m.fileUrl) {
+    return <VoiceMessage src={m.fileUrl} duration={m.duration ?? 0} mine={mine} />;
   }
-  if (m.type === "file" && m.fileId) {
+  if (m.type === "file" && m.fileUrl) {
     const isImage = (m.fileType ?? "").startsWith("image/");
     if (isImage) {
       return (
-        <a href={fileUrl(m.fileId)} target="_blank" rel="noreferrer" className="block">
+        <a href={m.fileUrl} target="_blank" rel="noreferrer" className="block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={fileUrl(m.fileId)} alt={m.fileName ?? "image"} className="max-h-60 rounded-lg object-cover" />
+          <img src={m.fileUrl} alt={m.fileName ?? "image"} className="max-h-60 rounded-lg object-cover" />
         </a>
       );
     }
     return (
       <a
-        href={fileUrl(m.fileId)}
+        href={m.fileUrl}
         download={m.fileName}
         target="_blank"
         rel="noreferrer"
