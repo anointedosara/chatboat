@@ -86,7 +86,14 @@ export default function ConversationPage() {
 
   const refresh = useCallback(async () => {
     if (!self || !target) return;
-    const list = await fetchMessages(self, target.peer, 0);
+    let list: ChatMessage[];
+    try {
+      list = await fetchMessages(self, target.peer, 0);
+    } catch {
+      // Transient fetch failure — keep the thread we already have on screen
+      // rather than blanking it until the next poll succeeds.
+      return;
+    }
     const lastId = list.length ? list[list.length - 1].id : "";
     if (lastId !== lastIdRef.current) {
       lastIdRef.current = lastId;

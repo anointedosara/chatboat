@@ -24,6 +24,11 @@ export type UploadResult = {
   error?: string;
 };
 
+/**
+ * Fetch the messages for a conversation. Throws on a failed request (network
+ * error or non-ok response) so callers can tell a transient failure apart from
+ * a genuinely empty conversation and avoid clobbering the rendered thread.
+ */
 export async function fetchMessages(
   self: string,
   peer: string,
@@ -33,8 +38,10 @@ export async function fetchMessages(
     `/api/messages?self=${self}&peer=${peer}&since=${since}`,
     { cache: "no-store" },
   );
+  if (!res.ok) throw new Error(`fetchMessages failed: ${res.status}`);
   const data = await res.json();
-  return data.ok ? (data.messages as ChatMessage[]) : [];
+  if (!data.ok) throw new Error(`fetchMessages failed: ${data.error ?? "unknown"}`);
+  return data.messages as ChatMessage[];
 }
 
 export async function sendMessage(
