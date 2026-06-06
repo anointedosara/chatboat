@@ -46,9 +46,10 @@ export type AppData = {
   contacts: Contact[];
   conversations: Conversation[];
   calls: CallLog[];
+  blocked: string[]; // blocked peer phones (normalized)
 };
 
-const EMPTY: AppData = { contacts: [], conversations: [], calls: [] };
+const EMPTY: AppData = { contacts: [], conversations: [], calls: [], blocked: [] };
 const EVENT = "chatboat:data";
 
 export function uid(prefix = ""): string {
@@ -76,6 +77,7 @@ export function loadData(): AppData {
       contacts: parsed.contacts ?? [],
       conversations: parsed.conversations ?? [],
       calls: parsed.calls ?? [],
+      blocked: parsed.blocked ?? [],
     };
   } catch {
     return { ...EMPTY };
@@ -188,6 +190,39 @@ export function addCall(call: Omit<CallLog, "id">): CallLog {
   data.calls.push(full);
   saveData(data);
   return full;
+}
+
+/* ---------- Blocked users ---------- */
+
+export function getBlocked(): string[] {
+  return loadData().blocked;
+}
+
+export function isBlocked(phone: string): boolean {
+  return loadData().blocked.includes(normalizePhone(phone));
+}
+
+export function blockUser(phone: string): void {
+  const data = loadData();
+  const key = normalizePhone(phone);
+  if (!data.blocked.includes(key)) {
+    data.blocked.push(key);
+    saveData(data);
+  }
+}
+
+export function unblockUser(phone: string): void {
+  const data = loadData();
+  data.blocked = data.blocked.filter((p) => p !== normalizePhone(phone));
+  saveData(data);
+}
+
+/* ---------- Account data ---------- */
+
+/** Permanently remove all of a user's app data from localStorage. */
+export function wipeUserData(phone: string): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(`chatboat:data:${normalizePhone(phone)}`);
 }
 
 /* ---------- formatting ---------- */

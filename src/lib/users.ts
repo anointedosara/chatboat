@@ -82,6 +82,13 @@ export function updateUser(
   return next;
 }
 
+/** Permanently delete a user account and clear the current-user pointer. */
+export function deleteUser(phone: string): void {
+  const key = normalizePhone(phone);
+  write(read().filter((u) => u.phone !== key));
+  clearCurrentUser();
+}
+
 /** Set just the profile picture (data URL) for a user. */
 export function setAvatar(phone: string, avatar: string): void {
   const users = read();

@@ -103,6 +103,18 @@ export function getConversationsFor(self: string): ConversationSummary[] {
     .sort((a, b) => b.lastTime - a.lastTime);
 }
 
+/** Delete all messages between two users (delete a chat). */
+export function deleteRoom(self: string, peer: string): void {
+  const room = roomId(self, peer);
+  state.messages = state.messages.filter((m) => m.room !== room);
+}
+
+/** Delete every message involving a user (account deletion). */
+export function deleteAllFor(self: string): void {
+  const me = normalizePhone(self);
+  state.messages = state.messages.filter((m) => m.from !== me && m.to !== me);
+}
+
 export function putFile(file: StoredFile): string {
   const id = uid("f_");
   state.files.set(id, file);
